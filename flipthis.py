@@ -6,13 +6,15 @@ from pygame.locals import *
 if not pygame.font: print("Warning: fonts disabled")
 if not pygame.mixer: print("Warning: sound disabled")
 
-print("Initializing Pygame Next")
-
 pygame.init()
+pygame.display.set_caption("FLIPTRIS")
+minoCtr = 0
 
 """
 NAUGHTY GLOBAL VARIABLE SECTION
 """
+
+CLOCKRATE = 1 # refreshes per second. Should be 60 eventually.
 
 WHITE     = 255,255,255
 BLACK     = 0,0,0
@@ -45,13 +47,13 @@ BX  = BOARDX    = 40
 BY  = BOARDY    = 40
 TS  = TILESIZE  = 40
 
-# playing field area
-COLUMNS         = 20
+# Tetrion area
+COLS = COLUMNS  = 20
 ROWS            = 20
 
 # calculate window size
-# playing field + info display area
-WIDTH     = (BOARDX * 9) + (TILESIZE * COLUMNS)
+# Tetrion + info display area + Border spacing
+WIDTH     = (BOARDX * 3) + (TILESIZE * COLUMNS) + (TS*6)
 HEIGHT    = (BOARDY * 2) + (TILESIZE * ROWS)
 
 # Fliptris Title Top Left Position
@@ -71,6 +73,8 @@ pygame.init()
 pygame.font.init()
 f1 = pygame.font.Font("BAUHS93.TTF",64)
 f2 = pygame.font.Font("BAUHS93.TTF",48)
+f3 = pygame.font.Font("BAUHS93.TTF",24)
+
 TITLE       = "FLIPTRIS"
 textTITLE   = "FLIPTRIS"#"ꙄIЯTꟼI⅃ꟻ"
 dispTITLE   = f1.render(textTITLE, True, PURPLE)
@@ -86,6 +90,65 @@ rectNEXT.topleft=NTTL
 screen = pygame.display.set_mode((WIDTH,HEIGHT))
 background = pygame.Surface((WIDTH,HEIGHT))
 
+# BASE CLASS FOR TETRION
+class Tetrion:
+    def __init__(self,pos=(BX,BY),size=(COLS,ROWS)):
+        self.pos = pos
+        self.up = 'N'
+        self.field = []
+        for y in range(size[1]):
+            temp = []
+            for x in range(size[0]):
+                temp.append('')
+            self.field.append(temp)
+        #print(self.field)
+            
+    # When a tetromino 'locks' into places, several
+    # things need to happen:
+    # 1. The mino is converted into individual blocks
+    #    in the tetromino field, and then deleted.
+    # 2. The Tetrion checks for game-over conditions.
+    # 3. The Tetrion checks for any completed lines and:
+    #  a) removes all blocks from the completed line
+    #  b) shifts all lines above downward
+    #  c) cascades loose blocks (if enabled) and:
+    #   *) checks for further completed lines
+    # 4. Returns a point value for all actions completed
+    #
+    #   IMPORTANT: *DO NOT CASCADE ON SIMPLE LOCKS!*
+    #
+    def lock(self,mino):
+        pass
+    
+    # When the Tetrion flips, 'gravity' switches directions
+    # The following must occur (in order):
+    # 1. The new 'bottom' row is scanned for 'loose'
+    #    block groups, where loose means:
+    #  a) single blocks not touching other blocks of the
+    #     same color in any of the four cardinal directions
+    #  b) groups of the same color blocks touching on
+    #     either the left or right but only on one line
+    #  c) groups of the same color blocks touching across
+    #     multiple lines, but without 'overhangs' above
+    #     a block or blocks of another color
+    #  d) 'stuck' block groups are considered 'glued'
+    #     together, and glued groups are then tested
+    #     for 'looseness'.
+    #  These 'loose' blocks then fall to the bottom in
+    #  a-b-c-d order.
+    # 2. 'Glued' block groups from the first round are
+    #    then tested for further possible drops when
+    #    they are 'unstuck', bottom-to-top, color by color.
+    # 3. Test for any completed lines, which should be
+    #    removed and scored.
+    # 4. If the next line is outside the tetrion boundary,
+    #     put the next mino in position and resume play.
+    # 5. If the next line is empty, check the line above
+    #    (goto #4)
+    # 6. If the next line is not empty, goto #1.
+    def flip(self,angle):
+        pass
+                
 # BASE CLASS FOR TETROMINOES
 class Tetromino:
     def __init__(self,pos,angle='N'):
@@ -98,6 +161,17 @@ class Tetromino:
             self.angle = NESW[(NESW.index(self.angle)+1)%len(NESW)]
         elif hand == 'L':
             self.angle = NESW[(NESW.index(self.angle)-1)%len(NESW)]
+    def move(self, direction=None):
+        # Test if mino is able to move in specified direction.
+        #  If yes, initiate move in that direction
+        #   Moving between columns: smooth or instant?
+        #    Instant: just shift block's horizontal pos by TS
+        #    Smooth: shift hpos TS*frames/update_period
+        pass
+    def softDrop(self):
+        pass
+    def hardDrop(self):
+        pass
     def draw(self):
         if self.angle == 'N':
             self.drawBlocks(self.NORTH)
@@ -114,7 +188,7 @@ class Tetromino:
             for col in range(cols):
                 if matrix[row][col] == 1:
                     screen.blit(self.block,(self.pos[0]+TS*col,self.pos[1]+TS*row))
-            
+                    
 class IMino(Tetromino):
     def __init__(self,pos,angle='N'):
         Tetromino.__init__(self,pos,angle)
@@ -281,26 +355,32 @@ class LMino(Tetromino):
                       [0,1,0,0],
                       [0,0,0,0]]
 
-def nextBlock():
-    nxt = choice(MINOS)
-    #print(nxt,end=" ")
-    return nxt
-    
 def draw():
     screen.blit(background, (0,0))
     screen.blit(dispTITLE, rectTITLE)
     screen.blit(dispNEXT, rectNEXT),
-    nextMino = nextBlock()
-    newMino(nextMino)
+
+    global minoCtr
+    dispMinoCtr = f3.render(str(minoCtr), True, WHITE)
+    rectMinoCtr = dispMinoCtr.get_rect()
+    rectMinoCtr.topleft = [NBTL[0],NBTL[1]+TS*4]
+    screen.blit(dispMinoCtr, rectMinoCtr)
+    minoCtr+=1
+    
+    shape, block = randomMino()
+    temp = drawMino(shape, block, [NBTL[0]+TS,NBTL[1]+TS])
+    del temp
+    
     for x in minosSet:
         x.draw()
         x.rotate('L')
 
     # update everything
     pygame.display.flip()
-    clock.tick(1)
+    clock.tick(CLOCKRATE)
 
-def newMino(shape):
+def randomMino():
+    shape = choice(MINOS)
 
     if shape == 'I':
         block = I
@@ -316,24 +396,25 @@ def newMino(shape):
         block = J
     elif shape == 'L':
         block = L
-    drawMino(shape, block, [NBTL[0]+TS,NBTL[1]+TS])
+    return (shape, block)
+    
 
 def drawMino(shape, block, pos, angle='N'):
     if shape == 'I':
-        IMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
+        outMino = IMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
     elif shape == 'O':
-        OMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
+        outMino = OMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
     elif shape == 'T':
-        TMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
+        outMino = TMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
     elif shape == 'S':
-        SMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
+        outMino = SMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
     elif shape == 'Z':
-        ZMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
+        outMino = ZMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
     elif shape == 'J':
-        JMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
+        outMino = JMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
     elif shape == 'L':
-        LMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
-    
+        outMino = LMino([NBTL[0]+TS,NBTL[1]+TS],'N').draw()
+    return outMino
 
 def main():
 
@@ -348,6 +429,8 @@ def main():
     minosSet.add( ZMino((TS*2 ,TS*6),'N') )
     minosSet.add( JMino((TS*6 ,TS*6),'N') )
     minosSet.add( LMino((TS*10,TS*6),'N') )
+
+    testtest = Tetrion()
 
     while(1):
         
